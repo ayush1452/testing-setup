@@ -1,0 +1,46 @@
+loki.write "local" {
+  endpoint {
+    url = "http://loki:3100/loki/api/v1/push"
+  }
+}
+
+otelcol.processor.batch "traces" {
+  output {
+    traces = [otelcol.exporter.otlphttp.tempo.input]
+  }
+}
+
+otelcol.exporter.otlphttp "tempo" {
+  client {
+    endpoint = "http://tempo:4318"
+  }
+}
+
+faro.receiver "browser" {
+  log_format = "json"
+  extra_log_labels = {
+    environment = "docker-local",
+    job         = "faro-web",
+    stack       = "grafana-faro-local",
+  }
+  sourcemaps {
+    download = false
+  }
+
+  server {
+    listen_address      = "0.0.0.0"
+    listen_port         = 12347
+    cors_allowed_origins = ["*"]
+
+    rate_limiting {
+      strategy   = "per_app"
+      rate       = 50
+      burst_size = 100
+    }
+  }
+
+  output {
+    logs   = [loki.write.local.receiver]
+    traces = [otelcol.processor.batch.traces.input]
+  }
+}
