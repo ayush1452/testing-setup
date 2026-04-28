@@ -15,14 +15,15 @@ Open `http://localhost:3001`.
 
 ## What it covers
 
-- `/web-vitals`: Next.js web vitals mirrored into Faro custom measurements
+- `/web-vitals`: Faro native `web-vitals` measurements plus a legacy FID bridge for the demo
 - `/status-errors`: handled JS errors, unhandled rejections, console errors, HTTP 503 probes
-- `/network-waterfall`: DNS, TCP, TLS, TTFB, and resource duration
+- `/network-waterfall`: native Faro performance events plus deeper local timing breakdowns
 - `/trace-lab`: one browser parent trace with nested child spans and traced server work
 
 ## Verification targets
 
-- Loki query: `{job="faro-web"} |= "next.web_vital"`
+- Loki query: `{job="faro-web"} | json | kind="measurement" | type="web-vitals"`
+- Loki query: `{job="faro-web"} |= "faro.performance.navigation"`
 - Loki query: `{job="faro-web", kind="error"}`
 - Tempo search: `journey.parent`
 - Tempo search: `api.telemetry.demo`
@@ -30,5 +31,5 @@ Open `http://localhost:3001`.
 ## Notes
 
 - The app runs on port `3001` so Grafana can keep `3000`.
-- Browser telemetry posts to `http://localhost:12347/collect`.
+- Browser telemetry posts to `/collect`, which the app proxies to Alloy at `http://localhost:12347/collect`.
 - Server spans export to Tempo OTLP HTTP at `http://localhost:4318/v1/traces`.

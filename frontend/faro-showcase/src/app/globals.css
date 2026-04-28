@@ -222,6 +222,14 @@ code,
   padding: clamp(28px, 4vw, 56px);
 }
 
+.poster-compact {
+  padding: clamp(18px, 2.4vw, 28px);
+}
+
+.panel-stage {
+  padding: clamp(18px, 2.6vw, 24px);
+}
+
 .poster::after {
   content: "";
   position: absolute;
@@ -244,6 +252,11 @@ code,
 .section-title {
   max-width: 18ch;
   font-size: clamp(1.7rem, 3vw, 3.3rem);
+}
+
+.section-title-compact {
+  max-width: 15ch;
+  font-size: clamp(1.45rem, 2.4vw, 2.15rem);
 }
 
 .poster-copy,
@@ -373,6 +386,11 @@ code,
 .scenario-card p {
   color: var(--muted);
   line-height: 1.55;
+}
+
+.soft-tile-warn {
+  border-color: rgba(242, 100, 59, 0.22);
+  background: linear-gradient(135deg, rgba(242, 100, 59, 0.12), rgba(255, 255, 255, 0.62));
 }
 
 .journey-stat {
