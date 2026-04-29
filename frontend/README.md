@@ -16,7 +16,7 @@ propagation.
 
 ```mermaid
 flowchart LR
-    A[Frontend App<br/>Grafana Faro SDK] -->|HTTP POST /collect/<app-name>| B[Grafana Alloy<br/>faro.receiver]
+    A[Frontend App<br/>Grafana Faro SDK] -->|HTTP POST /collect| B[Grafana Alloy<br/>faro.receiver]
     B -->|logs, events, errors, measurements| C[Loki]
     B -->|traces| D[Tempo]
     E[Grafana] -->|query| C
@@ -76,14 +76,17 @@ Grafana credentials:
 
 ## What to point your frontend at
 
-The demo app is already configured to send browser Faro data to:
+The demo app posts to the same-origin route:
+
+```text
+http://localhost:3001/collect
+```
+
+and proxies that upstream to Alloy at:
 
 ```text
 http://localhost:12347/collect
 ```
-
-If you build another frontend, `<your-app-name>` can be any stable slug such as
-`storefront` or `dashboard-web`.
 
 If your frontend runs on another origin during development, the current Alloy config will still accept it because `cors_allowed_origins = ["*"]` is enabled for local setup. Tighten that before exposing this stack outside local development.
 
@@ -93,9 +96,9 @@ An example Faro initialization file is available at [snippets/faro-init.ts](/Use
 
 ## Demo routes
 
-- `/web-vitals`: mirrors Next.js web vitals into Faro custom measurements
+- `/web-vitals`: uses Faro native `web-vitals` measurements plus a legacy FID bridge
 - `/status-errors`: emits handled JS errors, console errors, unhandled rejections, and HTTP 503s
-- `/network-waterfall`: surfaces DNS, TCP, TLS, TTFB, and resource timing
+- `/network-waterfall`: surfaces Faro native performance events and deeper local timing views
 - `/trace-lab`: creates one browser parent span with nested child spans and a traced server request
 
 The demo app also exports server spans directly to Tempo over OTLP HTTP on port
@@ -114,11 +117,11 @@ server trace ID match.
 3. Try focused queries such as:
 
 ```logql
-{job="faro-web"} |= "next.web_vital"
+{job="faro-web"} | json | kind="measurement" | type="web-vitals"
 ```
 
 ```logql
-{job="faro-web"} |= "browser.navigation.timings"
+{job="faro-web"} |= "faro.performance.navigation"
 ```
 
 ```logql
