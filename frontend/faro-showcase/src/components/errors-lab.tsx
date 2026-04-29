@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 import { faro } from "@/lib/faro";
 import { addErrorRecord } from "@/lib/telemetry-store-core";
 import { useTelemetryStore } from "@/lib/use-telemetry-store";
@@ -8,6 +9,7 @@ import { useTelemetryStore } from "@/lib/use-telemetry-store";
 function rememberError(
   kind: "console" | "handled" | "unhandled",
   error: Error | string,
+  path: string,
 ) {
   const message = error instanceof Error ? error.message : error;
 
@@ -16,18 +18,24 @@ function rememberError(
     kind,
     id: `${kind}:${message}:${Date.now()}`,
     message,
-    path: "/js-errors",
+    path,
   });
 }
 
 export function ErrorsLab() {
+  const pathname = usePathname();
+  const currentRoute = pathname;
   const errors = useTelemetryStore((state) =>
-    state.errors.filter((error) => error.path === "/js-errors"),
+    state.errors.filter((error) => error.path === currentRoute),
   );
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState(
     "Launch one error family at a time to verify Faro capture without mixing in HTTP probes.",
   );
+
+  useEffect(() => {
+    fetch("/api/telemetry?latency=80&label=js-errors-page-probe&via=page-load").catch(() => {});
+  }, []);
 
   const captureError = (
     kind: "handled" | "unhandled",
@@ -37,12 +45,12 @@ export function ErrorsLab() {
     faro.api.pushError(error, {
       type: kind === "unhandled" ? "synthetic-unhandled-js" : "handled-js",
       context: {
-        page: "/js-errors",
+        page: currentRoute,
         trigger,
       },
     });
 
-    rememberError(kind, error);
+    rememberError(kind, error, currentRoute);
     setMessage(`${trigger} emitted: ${error.name} - ${error.message}`);
   };
 
@@ -65,22 +73,32 @@ export function ErrorsLab() {
     faro.api.pushEvent(
       "console.error.emitted",
       {
-        page: "/js-errors",
+        page: currentRoute,
         level: "error",
       },
       "errors",
     );
-    rememberError("console", error);
+    rememberError("console", error, currentRoute);
     setMessage(`console.error emitted: ${error.message}`);
   };
 
   const emitAsyncRejection = () => {
+    const error = new Error("Synthetic async rejection from the Faro JS error lab");
+
+    faro.api.pushEvent(
+      "promise.rejection.scheduled",
+      {
+        page: currentRoute,
+        trigger: "async-rejection",
+      },
+      "errors",
+    );
+    setMessage(
+      "Unhandled rejection scheduled. The browser-level rejection handler should add it to the ledger momentarily.",
+    );
+
     setTimeout(() => {
-      captureError(
-        "unhandled",
-        new Error("Synthetic async rejection from the Faro JS error lab"),
-        "async-rejection",
-      );
+      Promise.reject(error);
     }, 0);
   };
 
@@ -134,7 +152,7 @@ export function ErrorsLab() {
       faro.api.pushEvent(
         "js_errors.full_sweep.completed",
         {
-          page: "/js-errors",
+          page: currentRoute,
         },
         "errors",
       );
@@ -256,6 +274,13 @@ export function ErrorsLab() {
             <p className="small-copy">
               The probes are isolated to JavaScript runtime error families. Use
               the separate status-code page for HTTP responses and network aborts.
+            </p>
+          </div>
+          <div className="soft-tile">
+            <p className="soft-label">Unhandled note</p>
+            <p className="small-copy">
+              The async rejection button now creates a real browser-level
+              `unhandledrejection` event instead of only simulating one in local state.
             </p>
           </div>
         </div>
