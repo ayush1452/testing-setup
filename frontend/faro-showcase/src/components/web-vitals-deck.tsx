@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
+import { usePathname, useSearchParams } from "next/navigation";
 import { faro } from "@/lib/faro";
 import { formatVitalValue } from "@/lib/performance";
 import { useTelemetryStore } from "@/lib/use-telemetry-store";
@@ -9,13 +10,13 @@ import { useTelemetryStore } from "@/lib/use-telemetry-store";
 const thresholds: Record<string, string> = {
   CLS: "good under 0.10",
   FCP: "good under 1.8s",
-  FID: "legacy first-input metric",
   INP: "good under 200ms",
   LCP: "good under 2.5s",
   TTFB: "good under 800ms",
 };
 
 type WebVitalsDeckProps = {
+  elevateLcpStage?: boolean;
   imageDelayMs: number;
   scenario: string;
   serverDelayMs: number;
@@ -36,12 +37,17 @@ function scenarioHref(scenario: string, serverDelayMs = 0, imageDelayMs = 0) {
 }
 
 export function WebVitalsDeck({
+  elevateLcpStage = false,
   imageDelayMs,
   scenario,
   serverDelayMs,
 }: WebVitalsDeckProps) {
-  const vitals = useTelemetryStore((state) => state.vitals);
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const currentSearch = searchParams.toString();
+  const currentRoute = `${pathname}${currentSearch ? `?${currentSearch}` : ""}`;
   const events = useTelemetryStore((state) => state.events);
+  const currentRouteEvents = events.filter((event) => event.path === currentRoute);
   const [shiftVisible, setShiftVisible] = useState(false);
   const [firstInputPulse, setFirstInputPulse] = useState<"idle" | "armed" | "running" | "complete">("idle");
   const [note, setNote] = useState(
@@ -50,17 +56,11 @@ export function WebVitalsDeck({
   const shiftTimerRef = useRef<number | null>(null);
   const fidIntervalRef = useRef<number | null>(null);
   const fidTimeoutRef = useRef<number | null>(null);
+  const isDevMode = process.env.NODE_ENV !== "production";
 
-  const latestByName = vitals.reduce<Record<string, (typeof vitals)[number]>>(
-    (accumulator, vital) => {
-      if (!accumulator[vital.name]) {
-        accumulator[vital.name] = vital;
-      }
-
-      return accumulator;
-    },
-    {},
-  );
+  useEffect(() => {
+    fetch("/api/telemetry?latency=80&label=web-vitals-page-probe&via=page-load").catch(() => {});
+  }, []);
 
   useEffect(() => {
     return () => {
@@ -126,23 +126,6 @@ export function WebVitalsDeck({
     };
   }, [scenario]);
 
-  const sendReadingCheckpoint = () => {
-    faro.api.pushMeasurement(
-      {
-        type: "web_vitals.checkpoint",
-        values: {
-          observed_metrics: vitals.length,
-        },
-        },
-        {
-          context: {
-            page: "/web-vitals",
-            scenario: scenario || "default",
-          },
-        },
-      );
-  };
-
   const generateInteractionDelay = () => {
     const start = performance.now();
 
@@ -153,7 +136,7 @@ export function WebVitalsDeck({
     faro.api.pushEvent(
       "event_timing.synthetic_interaction",
       {
-        page: "/web-vitals",
+        page: currentRoute,
         scenario: scenario || "default",
       },
       "event",
@@ -173,7 +156,7 @@ export function WebVitalsDeck({
       faro.api.pushEvent(
         "layout_shift.synthetic_probe",
         {
-          page: "/web-vitals",
+          page: currentRoute,
           scenario: scenario || "default",
         },
         "web-vitals",
@@ -185,14 +168,14 @@ export function WebVitalsDeck({
     faro.api.pushEvent(
       "fid.synthetic_tap",
       {
-        page: "/web-vitals",
+        page: currentRoute,
         pulse: firstInputPulse,
       },
       "web-vitals",
     );
     setNote(
       firstInputPulse === "running"
-        ? "First-input tap recorded during the pulse window. Check the FID slot in the latest readings."
+        ? "First-input tap recorded during the pulse window. Check Faro's native web-vitals measurement in Grafana."
         : "Tap recorded. If you need a clearer FID sample, reload the legacy first-input scenario and click during the amber pulse.",
     );
   };
@@ -210,6 +193,54 @@ export function WebVitalsDeck({
 
   return (
     <div className="page-stack">
+      {scenario === "lcp-image" && !elevateLcpStage ? (
+        <section className="panel">
+          <p className="eyebrow">LCP candidate area</p>
+          <div className="hero-image-frame">
+            <Image
+              alt="Synthetic hero used to produce a largest contentful paint candidate."
+              height={920}
+              priority
+              src={`/api/vital-image?delay=${imageDelayMs}&theme=teal&scenario=${scenario}`}
+              unoptimized
+              width={1400}
+            />
+          </div>
+          <p className="small-copy">
+            This image is promoted to the top of the page and marked `priority`
+            so the LCP scenario measures the intended candidate instead of the
+            surrounding copy blocks.
+          </p>
+        </section>
+      ) : null}
+
+      {scenario === "fid-window" ? (
+        <section className="panel">
+          <p className="eyebrow">Legacy first-input window</p>
+          <div className={`pulse-stage pulse-${firstInputPulse}`}>
+            <strong>
+              {firstInputPulse === "armed"
+                ? "Stand by. The pulse starts in a moment."
+                : firstInputPulse === "running"
+                  ? "Pulse active. Click now."
+                  : firstInputPulse === "complete"
+                    ? "Pulse complete. Reload to try again."
+                    : "Reload the FID scenario to arm it."}
+            </strong>
+            <span>
+              FID is legacy and browser-dependent. If no FID appears, compare INP and event timing instead.
+            </span>
+          </div>
+          <button
+            className={firstInputPulse === "running" ? "button" : "button button-ghost"}
+            onClick={markFirstInputTap}
+            type="button"
+          >
+            Capture first input tap
+          </button>
+        </section>
+      ) : null}
+
       <section className="panel">
         <p className="eyebrow">Metric-specific launchers</p>
         <div className="scenario-grid">
@@ -269,6 +300,13 @@ export function WebVitalsDeck({
             <p className="small-copy">{activeScenarioCopy}</p>
           </div>
           <div className="soft-tile">
+            <p className="soft-label">Metric availability</p>
+            <p className="small-copy">
+              `CLS`, `LCP`, and `INP` now stream interim changes during the run.
+              `FID` is best-effort because modern browsers treat it as a legacy signal.
+            </p>
+          </div>
+          <div className="soft-tile">
             <p className="soft-label">Reset</p>
             <p className="small-copy">
               Return to the neutral route after each reload-driven probe so the next reading is easier to interpret.
@@ -277,86 +315,33 @@ export function WebVitalsDeck({
               Reset to default
             </a>
           </div>
+          {isDevMode ? (
+            <div className="soft-tile soft-tile-warn">
+              <p className="soft-label">Dev-mode warning</p>
+              <p className="small-copy">
+                Turbopack dev runtime, HMR, and React dev tooling can shift vitals. Use `npm run build && npm run start`
+                when you want the cleanest numbers in Faro.
+              </p>
+            </div>
+          ) : null}
         </div>
       </section>
 
-      {scenario === "lcp-image" ? (
-        <section className="panel">
-          <p className="eyebrow">LCP candidate area</p>
-          <div className="hero-image-frame">
-            <Image
-              alt="Synthetic hero used to produce a largest contentful paint candidate."
-              height={920}
-              src={`/api/vital-image?delay=${imageDelayMs}&theme=teal&scenario=${scenario}`}
-              unoptimized
-              width={1400}
-            />
-          </div>
-          <p className="small-copy">
-            This image is delayed by the server and sized to dominate the viewport, making it the clearest LCP candidate on the page.
-          </p>
-        </section>
-      ) : null}
-
-      {scenario === "fid-window" ? (
-        <section className="panel">
-          <p className="eyebrow">Legacy first-input window</p>
-          <div className={`pulse-stage pulse-${firstInputPulse}`}>
-            <strong>
-              {firstInputPulse === "armed"
-                ? "Stand by. The pulse starts in a moment."
-                : firstInputPulse === "running"
-                  ? "Pulse active. Click now."
-                  : firstInputPulse === "complete"
-                    ? "Pulse complete. Reload to try again."
-                    : "Reload the FID scenario to arm it."}
-            </strong>
-            <span>
-              FID is legacy and browser-dependent. If no FID appears, compare INP and event timing instead.
-            </span>
-          </div>
-          <button
-            className={firstInputPulse === "running" ? "button" : "button button-ghost"}
-            onClick={markFirstInputTap}
-            type="button"
-          >
-            Capture first input tap
-          </button>
-        </section>
-      ) : null}
-
       <section className="panel">
-        <p className="eyebrow">Latest vital readings</p>
-        {vitals.length === 0 ? (
-          <div className="empty-state">
-            Refresh this page or navigate around the app once. The Next.js web
-            vitals callback will mirror readings here and push matching custom
-            measurements to Faro.
-          </div>
-        ) : (
-          <div className="metric-grid">
-            {["LCP", "CLS", "INP", "FCP", "TTFB", "FID"].map((name) => {
-              const metric = latestByName[name];
+        <p className="eyebrow">Native Faro web vitals</p>
+        <div className="metric-grid">
+          {Object.entries(thresholds).map(([name, threshold]) => (
+            <div className="metric-tile" key={name}>
+              <p className="metric-label">{name}</p>
+              <p className="metric-value">{name === "CLS" ? "score" : "ms"}</p>
+              <p className="metric-caption">{threshold}</p>
+            </div>
+          ))}
+        </div>
 
-              return (
-                <div className="metric-tile" key={name}>
-                  <p className="metric-label">{name}</p>
-                  <p className="metric-value">
-                    {metric ? formatVitalValue(metric.name, metric.value) : "pending"}
-                  </p>
-                  <p className="metric-caption">
-                    {metric ? `${metric.rating} · ${metric.navigationType}` : thresholds[name]}
-                  </p>
-                </div>
-              );
-            })}
-          </div>
-        )}
-
-        <div className="action-row">
-          <button className="button button-ghost" onClick={sendReadingCheckpoint} type="button">
-            Emit checkpoint measurement
-          </button>
+        <div className="soft-tile">
+          <p className="soft-label">Current route</p>
+          <p className="small-copy mono">{currentRoute}</p>
         </div>
 
         <p className="small-copy">{note}</p>
@@ -378,7 +363,7 @@ export function WebVitalsDeck({
 
       <section className="panel">
         <p className="eyebrow">Recent event timing</p>
-        {events.length === 0 ? (
+        {currentRouteEvents.length === 0 ? (
           <div className="empty-state">
             Generate the interaction delay once to collect `event` timing
             entries. These are separate from the vitals callback and are useful
@@ -386,7 +371,7 @@ export function WebVitalsDeck({
           </div>
         ) : (
           <div className="ledger">
-            {events.slice(0, 8).map((event) => (
+            {currentRouteEvents.slice(0, 8).map((event) => (
               <div className="ledger-row" key={event.id}>
                 <div>
                   <strong>{event.name}</strong>
@@ -406,27 +391,6 @@ export function WebVitalsDeck({
         )}
       </section>
 
-      <section className="panel">
-        <p className="eyebrow">Reading ledger</p>
-        {vitals.length === 0 ? (
-          <div className="empty-state">No vital readings yet.</div>
-        ) : (
-          <div className="ledger">
-            {vitals.slice(0, 10).map((metric) => (
-              <div className="ledger-row" key={metric.id}>
-                <div>
-                  <strong>{metric.name}</strong>
-                  <span>{metric.path}</span>
-                </div>
-                <span>{formatVitalValue(metric.name, metric.value)}</span>
-                <span className={`badge ${metric.rating === "good" ? "good" : "warn"}`}>
-                  {metric.rating}
-                </span>
-              </div>
-            ))}
-          </div>
-        )}
-      </section>
     </div>
   );
 }
