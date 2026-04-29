@@ -72,7 +72,7 @@ jobs:
           docker run --rm \
             -v ${{ github.workspace }}/frontend/observability/tempo/tempo.yml:/etc/tempo/tempo.yml:ro \
             grafana/tempo:2.10.4 \
-            -config.file=/etc/tempo/tempo.yml -verify-config
+            -config.file=/etc/tempo/tempo.yml -config.verify=true
 
       - name: Validate Grafana datasources YAML
         run: |
@@ -104,11 +104,6 @@ jobs:
           cache-dependency-path: frontend/faro-showcase/package-lock.json
       - run: npm ci
       - run: npm run build
-      - uses: actions/upload-artifact@v4
-        with:
-          name: next-build
-          path: frontend/faro-showcase/.next
-          retention-days: 1
 
   # ── test + coverage depends on build passing ──────────────────────────────
   test:
@@ -126,10 +121,6 @@ jobs:
           cache: npm
           cache-dependency-path: frontend/faro-showcase/package-lock.json
       - run: npm ci
-      - uses: actions/download-artifact@v4
-        with:
-          name: next-build
-          path: frontend/faro-showcase/.next
       - run: npm run test:coverage
       - uses: codecov/codecov-action@v4
         with:

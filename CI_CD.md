@@ -168,7 +168,6 @@ Once the secret exists, every run of the `test` job will post a coverage comment
 | `@vitest/coverage-v8` | `^2.0.0` | V8-based coverage provider (no Babel required) |
 | `actions/checkout` | `v4` | Repo checkout |
 | `actions/setup-node` | `v4` | Node.js 20 LTS with npm cache |
-| `actions/upload-artifact` | `v4` | Passes `.next` build output from Build → Test job |
 | `codecov/codecov-action` | `v4` | Uploads `lcov.info` and posts PR summary |
 
 ---
@@ -254,7 +253,7 @@ compose.yml                          ← root (includes frontend/compose.yml)
 |------|---------|----------------|
 | **Alloy** | `alloy fmt config.alloy` | River language syntax errors — bad blocks, unknown component names, type mismatches |
 | **Loki** | `loki -verify-config` | Invalid YAML keys, unknown schema versions, missing required sections, bad retention values |
-| **Tempo** | `tempo -verify-config` | Invalid receiver config, unknown storage backends, bad duration strings |
+| **Tempo** | `tempo -config.verify=true` | Invalid receiver config, unknown storage backends, bad duration strings |
 | **Grafana datasources** | `python3 yaml.safe_load` | Malformed YAML, missing `datasources` root key |
 
 > **What `docker compose config` catches (separately):** broken volume mount paths, undefined service references, duplicate port bindings, bad image names. It does not read or parse the contents of mounted config files.
