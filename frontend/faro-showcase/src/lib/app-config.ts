@@ -24,9 +24,11 @@ export const navItems = [
 ] as const;
 
 export function sectionFromPath(pathname: string) {
-  if (pathname === "/") {
+  const normalizedPath = pathname.split("?")[0]?.split("#")[0] ?? pathname;
+
+  if (normalizedPath === "/") {
     return "overview";
   }
 
-  return pathname.replace(/^\//, "").split("/")[0] || "overview";
+  return normalizedPath.replace(/^\//, "").split("/")[0] || "overview";
 }
