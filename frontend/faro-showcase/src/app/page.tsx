@@ -52,7 +52,11 @@ export default function Home() {
         <div className="code-grid">
           <div className="code-frame">
             <span className="code-label">Loki</span>
-            <code>{'{job="faro-web"} |= "browser.navigation.timings"'}</code>
+            <code>{'{job="faro-web"} |= "faro.performance.navigation"'}</code>
+          </div>
+          <div className="code-frame">
+            <span className="code-label">Loki</span>
+            <code>{'{job="faro-web"} | json | kind="measurement" | type="web-vitals"'}</code>
           </div>
           <div className="code-frame">
             <span className="code-label">Loki</span>

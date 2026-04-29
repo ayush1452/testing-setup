@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { AppShell } from "@/components/app-shell";
-import { TelemetryBridges } from "@/components/telemetry-bridges";
+import { FaroRouteSpan } from "@/components/FaroRouteSpan";
 import { appConfig } from "@/lib/app-config";
 import "./globals.css";
 
@@ -21,7 +22,9 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body>
-        <TelemetryBridges />
+        <Suspense fallback={null}>
+          <FaroRouteSpan />
+        </Suspense>
         <AppShell>{children}</AppShell>
       </body>
     </html>
