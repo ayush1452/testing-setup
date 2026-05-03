@@ -191,6 +191,17 @@ describe('resourceToRecord', () => {
     const record = resourceToRecord(entry, '/')
     expect(record.redirectMs).toBe(0)
   })
+
+  it('formats serverTiming entries correctly', () => {
+    const entry = makeTimingEntry({
+      serverTiming: [
+        { name: 'cache', duration: 0 },
+        { name: 'db', duration: 12.345 },
+      ]
+    })
+    const record = resourceToRecord(entry, '/')
+    expect(record.serverTiming).toEqual(['cache', 'db:12.35ms'])
+  })
 })
 
 describe('navigationToRecord', () => {

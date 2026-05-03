@@ -1,3 +1,14 @@
+export type VitalRecord = {
+  id: string;
+  name: string;
+  value: number;
+  delta: number;
+  rating: string;
+  navigationType: string;
+  path: string;
+  capturedAt: string;
+};
+
 export type NetworkRecord = {
   id: string;
   kind: "navigation" | "resource";
@@ -55,6 +66,7 @@ export type TraceRunRecord = {
 };
 
 export type TelemetryState = {
+  vitals: VitalRecord[];
   network: NetworkRecord[];
   events: EventTimingRecord[];
   errors: ErrorRecord[];
@@ -62,6 +74,7 @@ export type TelemetryState = {
 };
 
 const initialTelemetryState: TelemetryState = {
+  vitals: [],
   network: [],
   events: [],
   errors: [],
@@ -130,3 +143,12 @@ export function addTraceRun(value: TraceRunRecord) {
   };
   notify();
 }
+
+export function addWebVital(value: VitalRecord) {
+  currentTelemetryState = {
+    ...currentTelemetryState,
+    vitals: prepend(currentTelemetryState.vitals, value, 40),
+  };
+  notify();
+}
+

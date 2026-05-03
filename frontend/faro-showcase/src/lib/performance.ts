@@ -158,3 +158,20 @@ export function eventTimingToRecord(
     capturedAt: new Date().toISOString(),
   };
 }
+
+export function networkMeasurementValues(record: NetworkRecord) {
+  return {
+    duration_ms: record.duration,
+    redirect_ms: record.redirectMs,
+    dns_lookup_ms: record.dnsLookupMs,
+    tcp_handshake_ms: record.tcpHandshakeMs,
+    tls_negotiation_ms: record.tlsNegotiationMs,
+    service_worker_ms: record.serviceWorkerMs,
+    request_start_gap_ms: record.requestStartGapMs,
+    ttfb_ms: record.ttfbMs,
+    response_download_ms: record.responseDownloadMs,
+    transfer_kb: record.transferSizeKb,
+    encoded_body_kb: record.encodedBodySizeKb,
+    decoded_body_kb: record.decodedBodySizeKb,
+  };
+}
