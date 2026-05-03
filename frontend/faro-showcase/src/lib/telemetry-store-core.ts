@@ -112,14 +112,6 @@ export function getTelemetryServerSnapshot() {
   return initialTelemetryState;
 }
 
-export function addWebVital(value: VitalRecord) {
-  currentTelemetryState = {
-    ...currentTelemetryState,
-    vitals: prepend(currentTelemetryState.vitals, value, 24),
-  };
-  notify();
-}
-
 export function addNetworkRecord(value: NetworkRecord) {
   currentTelemetryState = {
     ...currentTelemetryState,
@@ -151,3 +143,12 @@ export function addTraceRun(value: TraceRunRecord) {
   };
   notify();
 }
+
+export function addWebVital(value: VitalRecord) {
+  currentTelemetryState = {
+    ...currentTelemetryState,
+    vitals: prepend(currentTelemetryState.vitals, value, 40),
+  };
+  notify();
+}
+

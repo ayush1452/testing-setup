@@ -8,7 +8,6 @@ import { useTelemetryStore } from "@/lib/use-telemetry-store";
 
 export function OverviewConsole() {
   const summary = useTelemetryStore((state) => ({
-    vitals: state.vitals.length,
     network: state.network.length,
     events: state.events.length,
     errors: state.errors.length,
@@ -83,10 +82,6 @@ export function OverviewConsole() {
       <section className="panel">
         <p className="eyebrow">Live signal counts</p>
         <div className="metric-grid">
-          <div className="metric-tile">
-            <p className="metric-label">Vitals</p>
-            <p className="metric-value">{summary.vitals}</p>
-          </div>
           <div className="metric-tile">
             <p className="metric-label">Network samples</p>
             <p className="metric-value">{summary.network}</p>

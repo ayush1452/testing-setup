@@ -1,8 +1,4 @@
-import { SpanStatusCode, trace } from "@opentelemetry/api";
-
 export const dynamic = "force-dynamic";
-
-const tracer = trace.getTracer("faro-showcase.server");
 
 function clamp(value: number, minimum: number, maximum: number) {
   if (!Number.isFinite(value)) {
@@ -55,41 +51,20 @@ export async function GET(request: Request) {
   const delayMs = clamp(Number(url.searchParams.get("delay") ?? 900), 0, 2200);
   const theme = url.searchParams.get("theme") === "teal" ? "teal" : "accent";
 
-  return tracer.startActiveSpan(
-    "api.vital_image",
-    {
-      attributes: {
-        "demo.delay_ms": delayMs,
-        "demo.theme": theme,
-        "http.route": "/api/vital-image",
+  try {
+    await sleep(delayMs);
+
+    return new Response(imageSvg(theme), {
+      headers: {
+        "Cache-Control": "no-store",
+        "Content-Type": "image/svg+xml; charset=utf-8",
+        "Server-Timing": `vital-image;dur=${delayMs}`,
+        "Timing-Allow-Origin": "*",
       },
-    },
-    async (span) => {
-      try {
-        await sleep(delayMs);
-        span.setStatus({ code: SpanStatusCode.OK });
-
-        return new Response(imageSvg(theme), {
-          headers: {
-            "Cache-Control": "no-store",
-            "Content-Type": "image/svg+xml; charset=utf-8",
-            "Server-Timing": `vital-image;dur=${delayMs}`,
-            "Timing-Allow-Origin": "*",
-          },
-        });
-      } catch (error) {
-        const err = error instanceof Error ? error : new Error(String(error));
-
-        span.recordException(err);
-        span.setStatus({
-          code: SpanStatusCode.ERROR,
-          message: err.message,
-        });
-
-        return new Response("image generation failed", { status: 500 });
-      } finally {
-        span.end();
-      }
-    },
-  );
+    });
+  } catch {
+    return new Response("image generation failed", {
+      status: 500,
+    });
+  }
 }
